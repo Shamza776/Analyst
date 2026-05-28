@@ -6,9 +6,9 @@ import pandas as pd
 
 # ── Configure Gemini ──────────────────────────────────────────────────────────
 genai.configure(api_key=os.environ["GEMINI_API_KEY"])
-for model in genai.list_models():
-    if "generateContent" in model.supported_generation_methods:
-        print(model.name)
+# for model in genai.list_models():
+#     if "generateContent" in model.supported_generation_methods:
+#         print(model.name)
 model = genai.GenerativeModel("gemini-2.5-flash")
 
 
@@ -28,15 +28,19 @@ The user's question is:
 \"{question}\"
 
 Write Python/pandas code to answer this question.
-RULES:
-- You have access to: df_a, df_b, and pd (pandas)
-- Always store your final output in a variable called `result`
-- result must be a DataFrame, a dict, a number, or a string
-- Do NOT import anything — pandas is already available as `pd`
-- Do NOT use print() — just store output in `result`
-- Write clean, concise code only. No explanation, no markdown, no code fences.
+STRICT RULES - violations will cause a crash:
+- You have access to ONLY: df_a, df_b, and pd (pandas). Nothing else.
+- Do NOT import anything. Do NOT use open(), eval(), exec(), or any file I/O.
+- Do NOT define functions or classes. Write flat, sequential code only.
+- The LAST line of your code MUST assign to a variable called `result`.
+- `result` must be a DataFrame, a number, a string, or a dict.
+- Do NOT use print(). Do NOT use display(). Only assign to `result`.
+- Return raw code only - no markdown, no code fences, no explanation whatsoever.
+ 
+EXAMPLE of correct output:
+merged = df_a.merge(df_b, on='{key}', how='left', indicator=True)
+result = merged[merged['_merge'] == 'left_only']
 """
-
 
 def _synthesis_prompt(question: str, result_str: str) -> str:
     return f"""
