@@ -1,15 +1,30 @@
 import os
-import google.generativeai as genai
+#import google.generativeai as genai
 from utils import get_schema
 import pandas as pd
+import requests 
 
 
-# ── Configure Gemini ──────────────────────────────────────────────────────────
-genai.configure(api_key=os.environ["GEMINI_API_KEY"])
-# for model in genai.list_models():
-#     if "generateContent" in model.supported_generation_methods:
-#         print(model.name)
-model = genai.GenerativeModel("gemini-2.5-flash")
+# # ── Configure Gemini ──────────────────────────────────────────────────────────
+# genai.configure(api_key=os.environ["GEMINI_API_KEY"])
+# # for model in genai.list_models():
+# #     if "generateContent" in model.supported_generation_methods:
+# #         print(model.name)
+# model = genai.GenerativeModel("gemini-2.5-flash")
+
+
+OLLAMA_URL = "http://localhost:11434/api/generate"
+MODEL = "llama3.1:latest"
+
+def _call_ollama(prompt: str) -> str:
+    """Send a prompt to local Ollama server and return the repsonse text."""
+    response = requests.post(OLLAMA_URL, json={
+        "model": MODEL,
+        "prompt": prompt,
+        "stream": False,
+    })
+    response.raise_for_status()
+    return response.json()["response"].strip()
 
 
 # ── Prompt Templates ──────────────────────────────────────────────────────────
@@ -78,19 +93,17 @@ Keep it under 6 sentences. Be direct and clear.
 # ── Public Functions ──────────────────────────────────────────────────────────
 
 def generate_pandas_code(question: str, df_a: pd.DataFrame, df_b: pd.DataFrame, key: str) -> str:
-    """Ask Gemini to write pandas code that answers the user's question."""
+    """Ask LLaMa to write pandas code that answers the user's question."""
     schema_a = get_schema(df_a, "df_a (File A)")
     schema_b = get_schema(df_b, "df_b (File B)")
     prompt = _code_generation_prompt(question, schema_a, schema_b, key)
-    response = model.generate_content(prompt)
-    # Strip any accidental markdown code fences
-    code = response.text.strip()
+    code = _call_ollama(prompt)
     code = code.replace("```python", "").replace("```", "").strip()
     return code
 
 
 def synthesize_result(question: str, result) -> str:
-    """Ask Gemini to explain a pandas result in plain English."""
+    """Ask LLaMa to explain a pandas result in plain English."""
     if isinstance(result, pd.DataFrame):
         result_str = result.to_string(index=False) if len(result) <= 20 else (
             result.head(10).to_string(index=False) + f"\n... ({len(result)} rows total)"
@@ -99,12 +112,10 @@ def synthesize_result(question: str, result) -> str:
         result_str = str(result)
 
     prompt = _synthesis_prompt(question, result_str)
-    response = model.generate_content(prompt)
-    return response.text.strip()
+    return _call_ollama(prompt)
 
 
 def synthesize_summary(summary: dict, key: str) -> str:
-    """Ask Gemini to narrate the high-level comparison summary."""
+    """Ask LLaMa to narrate the high-level comparison summary."""
     prompt = _summary_synthesis_prompt(summary, key)
-    response = model.generate_content(prompt)
-    return response.text.strip()
+    return _call_ollama(prompt)
